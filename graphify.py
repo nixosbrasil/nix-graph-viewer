@@ -7,7 +7,6 @@ from json import loads, dump
 from pathlib import Path
 
 TEMPLATE_FILE = Path(__file__).parent / "result"
-print(TEMPLATE_FILE)
 
 parser = ArgumentParser(description="Dumps path relations of a Nix closure")
 parser.add_argument('-i', type=str, help="Nix flake ref or nix store path", required=True)
@@ -42,12 +41,9 @@ with open(args.o, 'w') as w:
                 chunk = r.read(128*1024)
                 if not chunk:
                     break
-                print("chunk")
                 w.write(chunk)
         print("<script>window.onload = () => window.setData(", file=w)
     dump(dict(links=links,backlinks=backlinks,paths=paths), w)
     if not args.j:
         print(")</script>", file=w)
 
-
-# print(result_to_process[0])
