@@ -2,26 +2,61 @@
 , fetchurl
 , stdenvNoCC
 , which
+, lib
+, git
+, python3
 }:
 let
-  inherit (builtins) fromJSON readFile mapAttrs attrNames concatStringsSep;
-  lock = fromJSON (readFile ./package-lock.json);
-  fetched = mapAttrs (k: v: fetchurl { 
-    url = v.resolved;
-    sha512 = v.integrity;
-  }) lock.dependencies;
+  inherit (builtins) fromJSON readFile mapAttrs attrNames attrValues concatStringsSep head split replaceStrings filter hasAttr;
+  inherit (lib) reverseList flatten;
+  getLockFileFromTarball = src: stdenvNoCC.mkDerivation {
+    name = "${src.name}-package-lock.json";
+    inherit src;
+    preferLocalBuild = true;
+    installPhase = ''
+      find .
+      cp package/package-lock.json $out || echo '{"packages": {}}' > $out
+    '';
+  };
+  fetchItemsFromLock = lockfile: let
+      lockdata = fromJSON (readFile lockfile);
+      thisLevel = (map (v:
+        ((fetchurl {
+          name = head (reverseList (split "/" v.resolved));
+          url = v.resolved;
+          sha512 = v.integrity;
+        # }))
+        }).overrideAttrs (old: { passthru = v; }))
+      ) (filter (hasAttr "resolved") (attrValues lockdata.packages)));
+    in thisLevel ++ (flatten (map (item: fetchItemsFromLock (getLockFileFromTarball item)) thisLevel));
+
+  fetched = fetchItemsFromLock ./package-lock.json;
+
 in stdenvNoCC.mkDerivation {
   name = "frontend.html";
 
-  nativeBuildInputs = [ nodejs which ];
+  nativeBuildInputs = [ nodejs which python3 ];
+
+  preferLocalBuild = true;
 
   unpackPhase = ''
     cp ${./.}/* . -r
-    ${concatStringsSep "\n" (map (name: ''
-      mkdir -p ${name}
-      tar -xf ${fetched."${name}"} -C ${name}
-    '') (attrNames fetched))}
-    find .
+    mkdir _home -p
+    export HOME=$(pwd)/_home
+    chmod +w . $HOME -R
+
+    mkdir _cache -p
+
+    ${concatStringsSep "\n" (map (v: ''
+      FILENAME="${replaceStrings [ "https://registry.npmjs.org/"] ["$(pwd)/_cache/"] v.resolved}"
+      mkdir -p "$(dirname "$FILENAME")"
+      ln -s ${v} $FILENAME
+    '') fetched)}
+
+    python -m http.server 1234 -d _cache &
+
+    npm install --verbose --no-audit --registry http://127.0.0.1:1234
+
   '';
 
   buildPhase = ''

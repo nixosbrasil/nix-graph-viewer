@@ -12,10 +12,9 @@ print(TEMPLATE_FILE)
 parser = ArgumentParser(description="Dumps path relations of a Nix closure")
 parser.add_argument('-i', type=str, help="Nix flake ref or nix store path", required=True)
 parser.add_argument('-o', type=str, help="Where to save the generated HTML file", required=True)
+parser.add_argument('-j', type=bool, help="JSON only", default=False)
 args = parser.parse_args()
 
-# proc = run(["cat", "/home/lucasew/TMP2/sysgraph.json"], stdout=PIPE)
-# proc = run(["cat", "/home/lucasew/TMP2/sysgraph.json"], capture_output=True, shell=True, check=True)
 proc = run(["nix", "path-info", "-Sh", args.i, "--json", "--recursive"], stdout=PIPE, stderr=stderr, check=True)
 items = loads(proc.stdout)
 links = {}
@@ -37,16 +36,18 @@ for item in items:
         backlinks[reference].append(path)
 
 with open(args.o, 'w') as w:
-    with open(str(TEMPLATE_FILE), 'r') as r:
-        while True:
-            chunk = r.read(128*1024)
-            if not chunk:
-                break
-            print("chunk")
-            w.write(chunk)
-    print("<script>window.onload = () => window.setData(", file=w)
+    if not args.j:
+        with open(str(TEMPLATE_FILE), 'r') as r:
+            while True:
+                chunk = r.read(128*1024)
+                if not chunk:
+                    break
+                print("chunk")
+                w.write(chunk)
+        print("<script>window.onload = () => window.setData(", file=w)
     dump(dict(links=links,backlinks=backlinks,paths=paths), w)
-    print(")</script>", file=w)
+    if not args.j:
+        print(")</script>", file=w)
 
 
 # print(result_to_process[0])
