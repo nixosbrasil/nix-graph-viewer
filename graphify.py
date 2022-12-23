@@ -4,6 +4,10 @@ from subprocess import PIPE, run
 from argparse import ArgumentParser
 from sys import stderr
 from json import loads, dump
+from pathlib import Path
+
+TEMPLATE_FILE = Path(__file__).parent / "result"
+print(TEMPLATE_FILE)
 
 parser = ArgumentParser(description="Dumps path relations of a Nix closure")
 parser.add_argument('-i', type=str, help="Nix flake ref or nix store path", required=True)
@@ -33,14 +37,14 @@ for item in items:
         backlinks[reference].append(path)
 
 with open(args.o, 'w') as w:
-    with open("./web/dist/index.html", 'r') as r:
+    with open(str(TEMPLATE_FILE), 'r') as r:
         while True:
             chunk = r.read(128*1024)
             if not chunk:
                 break
             print("chunk")
             w.write(chunk)
-    print("<script>window.setData(", file=w)
+    print("<script>window.onload = () => window.setData(", file=w)
     dump(dict(links=links,backlinks=backlinks,paths=paths), w)
     print(")</script>", file=w)
 
