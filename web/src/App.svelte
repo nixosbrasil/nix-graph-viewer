@@ -5,12 +5,6 @@ import {dataStore} from './stores/data.ts'
 
 import ComponentTable from './lib/ComponentTable.svelte'
 
-onMount(() => {
-    import('/tmp/cool_graph.json').then(d => {
-        window.setData(d)
-    })
-})
-
 function getLinksOf(data: any, id: string, is_backlink: boolean = false) {
     const key = id.replace('nix:', '/nix/store/')
     return ((is_backlink ? data.backlinks : data.links)[key] || []).filter(x => x !== key)
