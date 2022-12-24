@@ -20,15 +20,13 @@ let
   };
   fetchItemsFromLock = lockfile: let
       lockdata = fromJSON (readFile lockfile);
-      thisLevel = (map (v:
+    in (map (v:
         ((fetchurl {
           name = head (reverseList (split "/" v.resolved));
           url = v.resolved;
           sha512 = v.integrity;
-        # }))
         }).overrideAttrs (old: { passthru = v; }))
       ) (filter (hasAttr "resolved") (attrValues lockdata.packages)));
-    in thisLevel ++ (flatten (map (item: fetchItemsFromLock (getLockFileFromTarball item)) thisLevel));
 
   fetched = fetchItemsFromLock ./package-lock.json;
 
