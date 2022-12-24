@@ -30,10 +30,45 @@ let
 
   fetched = fetchItemsFromLock ./package-lock.json;
 
+  httpsrv = builtins.toFile "http.js" ''
+// stolen from: https://stackoverflow.com/questions/16333790/node-js-quick-file-server-static-files-over-http
+var http = require('http');
+var fs = require('fs');
+var path = require('path');
+
+http.createServer(function (request, response) {
+    console.log('request starting...');
+
+    var filePath = process.env.HTTPD_CACHE_DIR + request.url;
+    console.log(request.method, request.url);
+
+    fs.readFile(filePath, function(error, content) {
+        if (error) {
+            if(error.code == 'ENOENT'){
+                fs.readFile('./404.html', function(error, content) {
+                    response.writeHead(404);
+                    response.end();
+                });
+            }
+            else {
+                response.writeHead(500);
+                response.end('Sorry, check with the site admin for error: '+error.code+' ..\n');
+                response.end(); 
+            }
+        }
+        else {
+            response.writeHead(200);
+            response.end(content, 'utf-8');
+        }
+    });
+
+}).listen(parseInt(process.env.HTTPD_PORT));
+  '';
+
 in stdenvNoCC.mkDerivation {
   name = "frontend.html";
 
-  nativeBuildInputs = [ nodejs which python3 ];
+  nativeBuildInputs = [ nodejs which ];
 
   preferLocalBuild = true;
 
@@ -50,16 +85,16 @@ in stdenvNoCC.mkDerivation {
       mkdir -p "$(dirname "$FILENAME")"
       ln -s ${v} $FILENAME
     '') fetched)}
-
-    python -m http.server 1234 -d _cache &
+    export HTTPD_CACHE_DIR=$(realpath .)/_cache
+    export HTTPD_PORT=1234
+    node ${httpsrv} &
 
     npm install --verbose --no-audit --registry http://127.0.0.1:1234
 
   '';
 
   buildPhase = ''
-    substituteInPlace node_modules/.bin/vite \
-      --replace '/usr/bin/env node' "$(which node)"
+    substituteInPlace node_modules/.bin/vite --replace '/usr/bin/env node' "$(which node)"
     mkdir -p dist
     chmod +w -R dist
     npm run build
