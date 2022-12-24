@@ -6,7 +6,7 @@ pkgs.stdenvNoCC.mkDerivation {
 
   dontUnpack = true;
 
-  nativeBuildInputs = [ pkgs.python3 ];
+  nativeBuildInputs = [ pkgs.python3Minimal ];
 
   installPhase = ''
     mkdir $out/bin -p
